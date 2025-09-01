@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Calculadora de Horas por Concepto</title>
+
+<!-- Bootstrap + jQuery + Chart.js (CDN) -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg1:#0ea5e9; --bg2:#9333ea; --card:#ffffff; --muted:#6b7280;
+  }
+  body{
+    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    background: linear-gradient(135deg,var(--bg1),var(--bg2));
+    min-height: 100vh; color:#0f172a;
+  }
+  .glass{ background: rgba(255,255,255,.85); backdrop-filter: blur(10px);
+    border-radius: 18px; box-shadow: 0 8px 30px rgba(0,0,0,.15); }
+  .brand{ color:#fff; text-shadow: 0 10px 30px rgba(0,0,0,.25); }
+  .table thead th{ font-weight:600; color:#334155; }
+  .btn-gradient{ background: linear-gradient(135deg,#22c55e,#10b981); border:0; color:#fff; font-weight:700; }
+  .btn-gradient:disabled{ opacity:.8; }
+  .pill{ background:#eef2ff; color:#3730a3; border-radius:999px; padding:.4rem .8rem; font-weight:600; }
+  .small-muted{ color:var(--muted); font-size:.9rem; }
+  .chart-card{ min-height:420px; }
+  .form-section-title{ font-weight:800; letter-spacing:.2px; }
+  .code{ font-family: ui-monospace, Menlo, Consolas, monospace; background:#0b1020; color:#d1d5db; border-radius:10px; padding:8px 10px; }
+</style>
+</head>
+<body>
+  <header class="container py-5">
+    <div class="text-center">
+      <h1 class="brand display-5 fw-bold mb-2">Calculadora de Horas por Concepto</h1>
+      <p class="brand lead mb-0">HO / HED / HEN — UI amigable + gráficos en vivo</p>
+    </div>
+  </header>
+
+  <main class="container pb-5">
+    <div class="row g-4">
+      <!-- Configuración -->
+      <div class="col-lg-7">
+        <div class="glass p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="form-section-title h4 mb-0">Configuración de conceptos</h2>
+            <div class="d-flex gap-2">
+              <button id="btnAddRow" class="btn btn-outline-primary btn-sm">+ Agregar concepto</button>
+              <button id="btnReset" class="btn btn-outline-secondary btn-sm">Restablecer estándar</button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-middle mb-2" id="tblConcepts">
+              <thead>
+                <tr>
+                  <th style="width:16%">ID</th>
+                  <th style="width:16%">Nombre</th>
+                  <th style="width:18%">Inicio</th>
+                  <th style="width:18%">Fin</th>
+                  <th class="text-end" style="width:12%">Acciones</th>
+                </tr>
+              </thead>
+              <tbody><!-- filas dinámicas --></tbody>
+            </table>
+          </div>
+          <p class="small-muted mb-0">Tip: HEN puede cruzar medianoche (21:00–05:59). Puedes añadir más conceptos si deseas.</p>
+        </div>
+      </div>
+
+      <!-- Asistencia + acción -->
+      <div class="col-lg-5">
+        <div class="glass p-4 h-100">
+          <h2 class="form-section-title h4 mb-3">Rango de asistencia</h2>
+          <form id="frmCalc" class="row g-3 needs-validation" novalidate>
+            <div class="col-6">
+              <label class="form-label">Hora de entrada</label>
+              <input type="time" class="form-control" id="attendanceIn" required value="08:00">
+              <div class="invalid-feedback">Requerido</div>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Hora de salida</label>
+              <input type="time" class="form-control" id="attendanceOut" required value="21:30">
+              <div class="invalid-feedback">Requerido</div>
+            </div>
+            <div class="col-12 d-flex align-items-center justify-content-between">
+              <div class="small-muted">La invocación al servicio es <span class="pill">asíncrona</span></div>
+              <button id="btnCalc" type="submit" class="btn btn-gradient">
+                <span class="btn-text">Calcular</span>
+                <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+              </button>
+            </div>
+            <div id="msg" class="text-danger small mt-2"></div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resultados -->
+    <div class="row g-4 mt-1">
+      <div class="col-12">
+        <div class="glass p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="form-section-title h4 mb-0">Resultados</h2>
+            <!-- <code class="code">POST https://falconcloud.co/site_srv10_ph/site/api/qserv.php/13465-770721</code> -->
+          </div>
+
+          <div id="chips" class="d-flex flex-wrap gap-2 mb-3"></div>
+
+          <div class="row g-4">
+            <div class="col-lg-6">
+              <div class="glass p-3 chart-card">
+                <h6 class="small text-uppercase text-muted mb-2">Distribución (pastel)</h6>
+                <canvas id="chartPie" height="320"></canvas>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="glass p-3 chart-card">
+                <h6 class="small text-uppercase text-muted mb-2">Horas por concepto (barras)</h6>
+                <canvas id="chartBar" height="320"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <h6 class="small text-uppercase text-muted">Respuesta en crudo</h6>
+            <pre id="raw" class="code mb-0" style="white-space:pre-wrap;"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+<script>
+(function(){
+  const API_URL = "https://falconcloud.co/site_srv10_ph/site/api/qserv.php/13465-770721";
+  let pieChart, barChart;
+
+  function makeRow({id,name,start,end}){
+    return `
+      <tr>
+        <td><input type="text" class="form-control form-control-sm concept-id" value="${id||""}" placeholder="HO" required></td>
+        <td><input type="text" class="form-control form-control-sm concept-name" value="${name||""}" placeholder="HO" required></td>
+        <td><input type="time" class="form-control form-control-sm concept-start" value="${start||""}" required></td>
+        <td><input type="time" class="form-control form-control-sm concept-end" value="${end||""}" required></td>
+        <td class="text-end">
+          <button class="btn btn-sm btn-outline-danger btnRemove">Eliminar</button>
+        </td>
+      </tr>`;
+  }
+
+  function setDefaultConcepts(){
+    const rows = [
+      {id:"HO",  name:"HO",  start:"08:00", end:"17:59"},
+      {id:"HED", name:"HED", start:"18:00", end:"20:59"},
+      {id:"HEN", name:"HEN", start:"21:00", end:"05:59"},
+    ];
+    const tbody = $("#tblConcepts tbody");
+    tbody.empty();
+    rows.forEach(r => tbody.append(makeRow(r)));
+  }
+
+  function readConcepts(){
+    const concepts = [];
+    $("#tblConcepts tbody tr").each(function(){
+      const id = $(this).find(".concept-id").val().trim();
+      const name = $(this).find(".concept-name").val().trim();
+      const start = $(this).find(".concept-start").val();
+      const end = $(this).find(".concept-end").val();
+      if(id && name && start && end){
+        concepts.push({ id, name, start, end });
+      }
+    });
+    return concepts;
+  }
+
+  function toggleLoading(loading){
+    $("#btnCalc .spinner-border").toggleClass("d-none", !loading);
+    $("#btnCalc .btn-text").text(loading ? "Calculando..." : "Calcular");
+    $("#btnCalc").prop("disabled", loading);
+    $("#msg").text("");
+  }
+
+  function orderConceptKeys(obj){
+    const order = ["HO","HED","HEN"];
+    const result = {};
+    for (const k of order) if (k in obj) result[k] = obj[k];
+    for (const k of Object.keys(obj)) if (!(k in result)) result[k] = obj[k];
+    return result;
+  }
+
+  function renderResult(data){
+    const ordered = orderConceptKeys(data);
+    const chips = Object.entries(ordered).map(([k,v]) => {
+      const hours = Number(v);
+      return `<span class="pill">${k}: ${hours} h</span>`;
+    }).join("");
+    $("#chips").html(chips);
+    $("#raw").text(JSON.stringify(ordered, null, 2));
+
+    const labels = Object.keys(ordered);
+    const values = Object.values(ordered).map(Number);
+
+    if (pieChart) pieChart.destroy();
+    if (barChart) barChart.destroy();
+
+    const pieCtx = document.getElementById('chartPie');
+    const barCtx = document.getElementById('chartBar');
+
+    pieChart = new Chart(pieCtx, {
+      type: 'pie',
+      data: { labels, datasets: [{ data: values }] },
+      options: {
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: { callbacks: { label: (ctx)=> `${ctx.label}: ${ctx.parsed} h` } }
+        }
+      }
+    });
+
+    barChart = new Chart(barCtx, {
+      type: 'bar',
+      data: { labels, datasets: [{ data: values }] },
+      options: {
+        scales: { y: { beginAtZero: true, title:{display:true, text:'Horas'} } },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (ctx)=> `${ctx.parsed.y} h` } }
+        }
+      }
+    });
+  }
+
+  async function callApi(payload){
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`HTTP ${res.status}: ${text}`);
+    }
+    return res.json();
+  }
+
+  $("#btnAddRow").on("click", function(){
+    $("#tblConcepts tbody").append(makeRow({id:"",name:"",start:"",end:""}));
+  });
+  $("#tblConcepts").on("click", ".btnRemove", function(){
+    $(this).closest("tr").remove();
+  });
+  $("#btnReset").on("click", setDefaultConcepts);
+
+  $("#frmCalc").on("submit", async function(e){
+    e.preventDefault();
+    const form = this;
+    if (!form.checkValidity()){
+      e.stopPropagation();
+      $(form).addClass("was-validated");
+      return;
+    }
+
+    const concepts = readConcepts();
+    if (concepts.length === 0){
+      $("#msg").text("Agrega al menos un concepto.");
+      return;
+    }
+
+    const attendanceIn = $("#attendanceIn").val();
+    const attendanceOut = $("#attendanceOut").val();
+
+    const payload = { attendanceIn, attendanceOut, concepts };
+    toggleLoading(true);
+    try{
+      const data = await callApi(payload);
+      renderResult(data);
+    }catch(err){
+      console.error(err);
+      $("#msg").text("No se pudo invocar el servicio. Revisa CORS, URL y payload. " + err.message);
+    }finally{
+      toggleLoading(false);
+    }
+  });
+
+  setDefaultConcepts();
+})();
+</script>
+</body>
+</html>
